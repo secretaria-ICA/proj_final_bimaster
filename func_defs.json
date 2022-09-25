@@ -1,0 +1,256 @@
+{
+    "overlap_functions":{
+        "BBANDS": {
+            "name": "Bollinger Bands",
+            "input_params": ["close", "timeperiod", "nbdevup", "nbdevdn", "matype"],
+            "return_values": ["upperband", "middleband", "lowerband"]
+        },
+        "DEMA": {
+            "name": "Double Exponential Moving Average",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["dema_{timeperiod}"]
+        },
+        "EMA": {
+            "name": "Exponential Moving Average",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["ema_{timeperiod}"]
+        },
+        "HT_TRENDLINE": {
+            "name": "Hilbert Transform - Instantaneous Trendline",
+            "input_params": ["close"],
+            "return_values": ["ht_trendline"]
+        },
+        "KAMA": {
+            "name": "Kaufman Adaptive Moving Average",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["kama_{timeperiod}"]
+        },
+        "MA": {
+            "name": "Moving average",
+            "input_params": ["close", "timeperiod", "matype"],
+            "return_values": ["ma_{timeperiod}"]
+        },
+        "MAMA": {
+            "name": "MESA Adaptive Moving Average",
+            "input_params": ["close", "fastlimit", "slowlimit"],
+            "return_values": ["mama"]
+        },
+        "MAVP": {
+            "name": "Moving average with variable period",
+            "input_params": ["close", "periods", "minperiod", "maxperiod", "matype"],
+            "return_values": ["mavp_{periods}"]
+        },
+        "MIDPRICE": {
+            "name": "MidPoint over period",
+            "input_params": ["high", "low", "timeperiod"],
+            "return_values": ["midprice"]
+        },
+        "SAR": {
+            "name": "Parabolic SAR",
+            "input_params": ["high", "low", "acceleration", "maximum"],
+            "return_values": ["sar"]
+        },
+        "SAREXT":{
+            "name": "Parabolic SAR - Extended",
+            "input_params": ["high", "low", "startvalue", "offsetonreverse", "accelerationinitlong", "accelerationlong", 
+                            "accelerationmaxlong", "accelerationinitshort", "accelerationshort", "accelerationmaxshort"],
+            "return_values": ["sarext"]
+        },
+        "SMA": {
+            "name": "Simple Moving Average",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["sma"]
+        },
+        "T3": {
+            "name": "Triple Exponential Moving Average (T3)",
+            "input_params": ["close", "timeperiod", "vfactor"],
+            "return_values": ["T3"]
+        },
+        "TRIMA": {
+            "name": "Triangular Moving Average",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["trima"]
+        },
+        "WMA": {
+            "name": "Weighted Moving Average",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["wma"]
+        }
+    },
+    "momentum_indicators":{
+        "ADX": {
+            "name": "Average Directional Movement Index",
+            "input_params": ["high", "low", "close", "timeperiod"],
+            "return_values": ["adx"]           
+        },
+        "ADXR": {
+            "name": "Average Directional Movement Index Rating",
+            "input_params": ["high", "low", "close", "timeperiod"],
+            "return_values": ["adxr"]           
+        },
+        "APO": {
+            "name": "Absolute Price Oscillator",
+            "input_params": ["close", "fastperiod", "slowperiod", "matype"],
+            "return_values": ["apo"]           
+        },
+        "AROON": {
+            "name": "Aroon",
+            "input_params": ["high", "low", "timeperiod"],
+            "return_values": ["aroondown", "aroonup"]           
+        },
+        "BOP": {
+            "name": "Aroon Oscillator",
+            "input_params": ["open", "high", "low", "close"],
+            "return_values": ["bop"]           
+        },
+        "CCI": {
+            "name": "Commodity Channel Index",
+            "input_params": ["high", "low", "close", "timeperiod"],
+            "return_values": ["cci"]           
+        },
+        "CMO": {
+            "name": "Chande Momentum Oscillator",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["cmo"]           
+        },
+        "DX": {
+            "name": "Directional Movement Index",
+            "input_params": ["high", "low", "close", "timeperiod"],
+            "return_values": ["dx"]           
+        },
+        "MACD": {
+            "name": "Moving Average Convergence/Divergence",
+            "input_params": ["close", "fastperiod", "slowperiod", "signalperiod"],
+            "return_values": ["macd", "macdsignal", "macdhist"]           
+        },
+        "MACDEXT": {
+            "name": "MACD with controllable MA type",
+            "input_params": ["close", "fastperiod", "fastmatype", "slowperiod", "slowmatype", "signalperiod", "signalmatype"],
+            "return_values": ["macd", "macdsignal", "macdhist"]           
+        },
+        "MFI": {
+            "name": "Money Flow Index",
+            "input_params": ["high", "low", "close", "volume", "timeperiod"],
+            "return_values": ["mfi"]           
+        },
+        "MINUS_DI": {
+            "name": "Minus Directional Indicator",
+            "input_params": ["high", "low", "close", "timeperiod"],
+            "return_values": ["minus_di"]           
+        },
+        "MINUS_DM": {
+            "name": "Minus Directional Movement",
+            "input_params": ["high", "low", "timeperiod"],
+            "return_values": ["minus_dm"]
+        },
+        "MOM": {
+            "name": "Momentum",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["mom"]
+        },
+        "PLUS_DI": {
+            "name": "Plus Directional Indicator",
+            "input_params": ["high", "high", "close", "timeperiod"],
+            "return_values": ["plus_di"]
+        },  
+        "PLUS_DM": {
+            "name": "Plus Directional Movement",
+            "input_params": ["high", "high", "timeperiod"],
+            "return_values": ["plus_dm"]
+        },
+        "PPO": {
+            "name": "Percentage Price Oscillator",
+            "input_params": ["close", "fastperiod", "slowperiod", "matype"],
+            "return_values": ["ppo"]
+        },
+        "ROC": {
+            "name": "Rate of change : ((price/prevPrice)-1)*100",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["roc"]
+        },
+        "ROCP": {
+            "name": "Rate of change Percentage: (price-prevPrice)/prevPrice",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["rocp"]
+        },
+        "ROCR": {
+            "name": "Rate of change ratio: (price/prevPrice)",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["rocr"]
+        },
+        "ROCR100": {
+            "name": "Rate of change ratio 100 scale: (price/prevPrice)*100",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["rocr100"]
+        },
+        "RSI": {
+            "name": "Relative Strength Index",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["rsi"]
+        },
+        "STOCH": {
+            "name": "Stochastic",
+            "input_params": ["high", "low", "close", "fastk_period", "slowk_period", "slowk_matype", "slowd_period", "slowd_matype"],
+            "return_values": ["slowk", "slowd"]
+        },
+        "STOCHF": {
+            "name": "Stochastic Fast",
+            "input_params": ["high", "low", "close", "fastk_period", "fastd_period", "fastd_matype"],
+            "return_values": ["fastk", "fastd"]
+        },
+        "STOCHRSI": {
+            "name": "Stochastic Relative Strength Index",
+            "input_params": ["close", "timeperiod", "fastk_period", "fastd_period", "fastd_matype"],
+            "return_values": ["fastk", "fastd"]
+        },
+        "TRIX": {
+            "name": "1-day Rate-Of-Change (ROC) of a Triple Smooth EMA",
+            "input_params": ["close", "timeperiod"],
+            "return_values": ["trix"]
+        },
+        "ULTOSC": {
+            "name": "Ultimate Oscillator",
+            "input_params": ["high", "low", "close", "timeperiod1", "timeperiod2", "timeperiod3"],
+            "return_values": ["ultosc"]
+        },
+        "WILLR": {
+            "name": "Williams %R",
+            "input_params": ["high", "low", "close", "timeperiod"],
+            "return_values": ["willr"]
+        }
+    },
+    "volume_indicators":{
+        "AD": {
+            "name": "Chaikin A/D Line",
+            "input_params": ["high", "low", "close", "volume"],
+            "return_values": ["ad"]
+        },
+        "ADOSC": {
+            "name": "Chaikin A/D Oscillator",
+            "input_params": ["high", "low", "close", "volume", "fastperiod", "slowperiod"],
+            "return_values": ["adosc"]
+        },
+        "OBV": {
+            "name": "On Balance Volume",
+            "input_params": ["high", "volume"],
+            "return_values": ["obv"]
+        }
+    },
+    "volatility_indicators":{
+        "ATR": {
+            "name": "Average True Range",
+            "input_params": ["high", "low", "close", "timeperiod"],
+            "return_values": ["atr"]
+        },
+        "NATR": {
+            "name": "Normalized Average True Range",
+            "input_params": ["high", "low", "close", "timeperiod"],
+            "return_values": ["natr"]
+        },
+        "TRANGE": {
+            "name": "True Range",
+            "input_params": ["high", "low", "close"],
+            "return_values": ["trange"]
+        }
+    }
+}

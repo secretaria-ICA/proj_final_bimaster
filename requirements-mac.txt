@@ -5,3 +5,4 @@ TA-Lib==0.4.25
 tensorflow-macos==2.10.0
 tensorflow-metal==0.5.1
 pyarrow==9.0.0
+python-dotenv==0.21.0

@@ -1,0 +1,51 @@
+{
+    "EMA_7_21_OBV":{
+        "description": "Combinacao de 2 medias moveis (7 e 21 dias) e OBV ",
+        "historic_period": 90,
+        "profit_period": 22,
+        "profit": 0.05,
+        "functions": {
+            "EMA_7":{
+                "function": "EMA",
+                "params":{
+                    "timeperiod": 7
+                }
+            },
+            "EMA_21": {
+                "function": "EMA",
+                "params":{
+                    "timeperiod": 21
+                }            
+            },
+            "OBV":{
+                "function": "OBV"                  
+            }
+        }
+    },
+    "BBANDS_ADX_OBV":{
+        "description": "Combinacao de Bolinger Bands (14, 2, 2), ADX e OBV ",
+        "historic_period": 90,
+        "profit_period": 22,
+        "profit": 0.05,
+        "functions": {
+            "BBANDS_14_2_2_EMA":{
+                "function": "BBANDS",
+                "params":{
+                    "timeperiod": 14,
+                    "nbdevup": 2.0, 
+                    "nbdevdn": 2.0, 
+                    "matype": 1
+                }
+            },
+            "ADX": {
+                "function": "EMA",
+                "params":{
+                    "timeperiod": 21
+                }            
+            },
+            "OBV":{
+                "function": "OBV"                  
+            }
+        }
+    }
+}

@@ -3,16 +3,12 @@ import talib
 import re
 import pandas as pd
 import json
+from typing import List
 from talib import abstract
 from db_access import ExportToParquet
 
 
-class PreProcess():
-
-    def __init__(self, strategy_file: str) -> None:
-        assert os.path.exists(strategy_file)
-        self.strategy_file = strategy_file
-        
+class PreProcess():        
         
     def apply_function(self, data_source: pd.DataFrame, func_name: str, **kwargs)->pd.DataFrame:
         assert func_name in talib.get_functions(), f"Invalid function {func_name}"
@@ -21,14 +17,14 @@ class PreProcess():
 
         regex = re.compile(r"\{.*\}")
 
-        # Cria uma copia do dataframe de entreda que sera usado como dataframe de saida
+        # Create a copy of the input dataframe that will be used as the output dataframe
         df_ret = data_source.copy(deep=True)
         with open("func_defs.json", "r") as f:
             func_def = json.load(f)
             for type in func_def.keys():
                 if func_name in func_def[type]:
                     input_params = func_def[type][func_name]['input_params']
-                    # Valida os parametros de entrada da funcao
+                    # Validate the input parameter
                     for param in input_params:
                         if param not in price_params and param not in kwargs:
                             raise ValueError(f"The function {func_name} requires the parameter {param}.")
@@ -36,14 +32,14 @@ class PreProcess():
                             price_params_vals.append(data_source[param])
                     
                     return_values = func_def[type][func_name]['return_values']
-                    # Ajusta o nome dos parametros de retorno
+                    # Adjust the name of the output parameters
                     for i, ret_val in enumerate(return_values):
                         param_name = regex.search(ret_val)
                         if param_name is not None:
                             param_name = param_name.group(0)[1:-1]
                             return_values[i] = regex.sub(str(kwargs[param_name]), ret_val)
 
-                    # Cria uma instancia da funcao para calcular o indicador tecnico
+                    # Create areference to the function used to calculate the technical indicator
                     ta_lib_function = abstract.Function(func_name)
 
                     if len(return_values) == 1:
@@ -56,9 +52,10 @@ class PreProcess():
 
                     return df_ret
 
-    def create_datasets(self, data_set: pd.DataFrame, data_folder: str, asset_id: str):
-        # Le a estrategia do arquivo de confgurcao
-        with open(self.strategy_file, "r") as f:
+    def create_datasets(self, strategy_file: str, data_set: pd.DataFrame, data_folder: str, ticker: str):
+        assert os.path.exists(strategy_file)
+        # Read the strategy from the configuration file
+        with open(strategy_file, "r") as f:
             exporter = ExportToParquet()
             startegies = json.load(f)
             for strategy in startegies.keys():
@@ -73,4 +70,44 @@ class PreProcess():
                     else:
                         df_ret = self.apply_function(df_ret, dict_aux[function]['function'])
 
-                exporter.export(df_ret, folder_path=folder, file_name=asset_id)
+                exporter.export(df_ret, folder_path=folder, file_name=ticker)
+
+
+    def transpose_columns(self,
+                          df: pd.DataFrame, 
+                          window_size: int, 
+                          shift: int = 1,
+                          cols_to_transpose: List[str] = None,
+                          dt_column: str = "dt_price",
+                          ticker_column: str = "ticker")->pd.DataFrame:
+
+        assert window_size <= df.shape[0], "The window size must be less than the number of rows"
+        assert shift > 0, "The parameter shift must be an integer greater than zero"
+        assert pd.api.types.is_datetime64_any_dtype(df[dt_column]), "The parameter dt_column must be a datetime64"
+
+        # if no list is passed, set the lisof columns to transpose
+        if cols_to_transpose is None:
+            cols_to_transpose = [col for col in df.columns if col not in [ticker_column, dt_column]]
+
+        col_names = [f"start_{dt_column}", "end_{dt_column}"]
+        for col in cols_to_transpose:
+            # create the list of columns based on the window size
+            col_names.extend([f"{col}_{i}" for i in range(window_size)])
+        
+        i = 0
+        j = window_size
+        values = []
+        while j <= df.shape[0]:
+            row_values = [df[dt_column].loc[i], df[dt_column].loc[j-1]]
+            for col in cols_to_transpose:
+                row_values.extend(df[col].iloc[i:j].values)
+            
+            values.append(row_values)
+
+            i += shift
+            j = i+window_size
+        
+        df_ret = pd.DataFrame(data=values, columns=col_names)
+        df_ret.insert(0, ticker_column, [df[ticker_column].unique()[0]]*df_ret.shape[0])
+
+        return df_ret

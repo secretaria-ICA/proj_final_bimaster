@@ -3,13 +3,19 @@ import talib
 import re
 import pandas as pd
 import json
+import enum
+import numpy as np
 from typing import List
 from talib import abstract
-from db_access import ExportToParquet
+from datetime import timedelta
 
 
-class PreProcess():        
-        
+class PROFTABILITY_TYPE(enum.IntEnum):
+    LINEAR = 1
+    LOG = 2
+
+class PreProcess():
+    
     def apply_function(self, data_source: pd.DataFrame, func_name: str, **kwargs)->pd.DataFrame:
         assert func_name in talib.get_functions(), f"Invalid function {func_name}"
         price_params = ["open", "close", "high", "low", "volume"]
@@ -52,15 +58,13 @@ class PreProcess():
 
                     return df_ret
 
-    def create_datasets(self, strategy_file: str, data_set: pd.DataFrame, data_folder: str, ticker: str):
+    def calculate_strategy(self, strategy_file: str, data_set: pd.DataFrame)->pd.DataFrame:
         assert os.path.exists(strategy_file)
         # Read the strategy from the configuration file
         with open(strategy_file, "r") as f:
-            exporter = ExportToParquet()
             startegies = json.load(f)
             for strategy in startegies.keys():
                 df_ret = data_set.copy(deep=True)
-                folder = os.path.join(data_folder, strategy)
                 print(f"Processing strategy: {startegies[strategy]['description']}")
                 for function in startegies[strategy]["functions"]:
                     dict_aux = startegies[strategy]["functions"]
@@ -70,7 +74,7 @@ class PreProcess():
                     else:
                         df_ret = self.apply_function(df_ret, dict_aux[function]['function'])
 
-                exporter.export(df_ret, folder_path=folder, file_name=ticker)
+                yield strategy, startegies[strategy], df_ret
 
 
     def transpose_columns(self,
@@ -89,7 +93,7 @@ class PreProcess():
         if cols_to_transpose is None:
             cols_to_transpose = [col for col in df.columns if col not in [ticker_column, dt_column]]
 
-        col_names = [f"start_{dt_column}", "end_{dt_column}"]
+        col_names = [f"start_{dt_column}", f"end_{dt_column}"]
         for col in cols_to_transpose:
             # create the list of columns based on the window size
             col_names.extend([f"{col}_{i}" for i in range(window_size)])
@@ -98,7 +102,7 @@ class PreProcess():
         j = window_size
         values = []
         while j <= df.shape[0]:
-            row_values = [df[dt_column].loc[i], df[dt_column].loc[j-1]]
+            row_values = [df[dt_column].iloc[i], df[dt_column].iloc[j-1]]
             for col in cols_to_transpose:
                 row_values.extend(df[col].iloc[i:j].values)
             
@@ -111,3 +115,14 @@ class PreProcess():
         df_ret.insert(0, ticker_column, [df[ticker_column].unique()[0]]*df_ret.shape[0])
 
         return df_ret
+
+    def calculate_proftability(self, df: pd.DataFrame, 
+                               dt_search: pd.Timestamp, 
+                               profit_period: int, 
+                               calc_type: PROFTABILITY_TYPE = PROFTABILITY_TYPE.LINEAR)->float:
+        if df.index.get_loc(dt_search)+profit_period < df.shape[0]:
+            return df.iloc[df.index.get_loc(dt_search)+profit_period]["close"]/df.iloc[df.index.get_loc(dt_search)+1]["close"]-1 \
+                   if calc_type == PROFTABILITY_TYPE.LINEAR \
+                   else np.log(df.iloc[df.index.get_loc(dt_search)+profit_period]["close"]/df.iloc[df.index.get_loc(dt_search)+1]["close"])
+        else:
+            return None

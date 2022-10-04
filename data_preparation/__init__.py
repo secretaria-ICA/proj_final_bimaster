@@ -1,1 +1,2 @@
 from data_preparation.perpare import PreProcess as PreProcess
+from data_preparation.perpare import PROFTABILITY_TYPE as PROFTABILITY_TYPE

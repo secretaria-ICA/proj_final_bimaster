@@ -5,9 +5,12 @@ import pandas as pd
 import json
 import enum
 import numpy as np
+import pickle
 from typing import List
 from talib import abstract
-from datetime import timedelta
+from sklearn.base import TransformerMixin
+from sklearn.model_selection import train_test_split
+from db_access import ExportToParquet, ExportToPickle
 
 
 class PROFTABILITY_TYPE(enum.IntEnum):
@@ -57,6 +60,7 @@ class PreProcess():
                             df_ret[return_values[i]] = ret
 
                     return df_ret
+
 
     def calculate_strategy(self, strategy_file: str, data_set: pd.DataFrame)->pd.DataFrame:
         assert os.path.exists(strategy_file)
@@ -116,6 +120,7 @@ class PreProcess():
 
         return df_ret
 
+
     def calculate_proftability(self, df: pd.DataFrame, 
                                dt_search: pd.Timestamp, 
                                profit_period: int, 
@@ -126,3 +131,65 @@ class PreProcess():
                    else np.log(df.iloc[df.index.get_loc(dt_search)+profit_period]["close"]/df.iloc[df.index.get_loc(dt_search)+1]["close"])
         else:
             return None
+
+    
+    def create_train_test_dataset(self, strategy_file: str, test_size: float, random_seed: int, scaler: TransformerMixin):
+        data_file_path = os.environ.get("DATASET_PATH")
+        model_base_path = os.environ.get("MODELS_PATH")
+        train_ds_base_path = os.environ.get("TRAIN_DATASET")
+        price_cols_to_delete = ["open", "high", "low"]
+        exp_to_parquet = ExportToParquet()
+
+        with open(strategy_file, "r") as f:
+            df_train = None
+            df_test = None
+            startegies = json.load(f)
+            for strategy in startegies.keys():
+                files_path = os.path.join(data_file_path, strategy)
+                path_content = os.listdir(files_path)
+                # Filtra os arquivos parquet do diretório
+                path_content = [file for file in path_content if file.endswith(".parquet")]
+
+                for file in path_content:
+                    print(f"Processando arquivo {file} na estrategia {strategy}")
+                    asset = file.split('.')[0]
+                    cols_to_delete = ["ticker", "start_dt_price", "end_dt_price", "proftability"]
+                    df = pd.read_parquet(os.path.join(files_path, file))
+                    # Seleciona as colunas que nao serao usadas no modelo
+                    for price_col in price_cols_to_delete:
+                        for df_col in df.columns:
+                            if df_col.startswith(price_col):
+                                cols_to_delete.append(df_col)
+
+                    df.drop(columns=cols_to_delete, inplace=True)
+                    Y = df.pop('label')
+                    remaining_cols_df = df.columns
+
+                    if df_test is None:
+                        df_test = pd.DataFrame(data=None, columns=remaining_cols_df)
+                        df_train = pd.DataFrame(data=None, columns=remaining_cols_df)
+
+                    # Gera as bases de treino e teste
+                    X_train, X_test, Y_train, Y_test = train_test_split(df.values, 
+                                                                        Y.values, 
+                                                                        test_size=test_size, 
+                                                                        stratify=Y.values, 
+                                                                        random_state=random_seed)
+
+                    scalar_instance = scaler.fit(X_train)
+
+                    # salva o modelo que faz scaling para ser usado posteriormente
+                    exp_to_pickle = ExportToPickle()
+                    exp_to_pickle.export(scalar_instance, os.path.join(model_base_path, strategy), asset)
+
+                    for aux_vals, aux_labels, suffix in [(X_train, Y_train, "train"), (X_test, Y_test, "test")]:
+                        X_standarized = scalar_instance.transform(aux_vals)
+                        df_aux = pd.DataFrame(data=X_standarized, columns=remaining_cols_df)
+                        df_aux["label"] = aux_labels
+                        if suffix == "train":
+                            df_train = pd.concat([df_train, df_aux], ignore_index=True)
+                        else:
+                            df_test = pd.concat([df_test, df_aux], ignore_index=True)
+
+                exp_to_parquet.export(df_train, os.path.join(train_ds_base_path, strategy), "train_data")
+                exp_to_parquet.export(df_test, os.path.join(train_ds_base_path, strategy), "test_data")

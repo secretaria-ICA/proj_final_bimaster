@@ -121,6 +121,46 @@ class PreProcess():
         return df_ret
 
 
+    def format_dataset(self,
+                       df_raw: pd.DataFrame,
+                       df_tech: pd.DataFrame,
+                       windows_size: int,
+                       stride: int,
+                       profit_period: int,
+                       min_profit: float,
+                       cols_to_delete: List,
+                       ticker_col: str = "ticker",
+                       date_col: str = "dt_price") -> pd.DataFrame:
+        pre_process = PreProcess()
+        if cols_to_delete is not None:
+            cols_to_delete.extend([ticker_col, date_col])
+        else:
+            cols_to_delete = [ticker_col, date_col]
+
+        cols = [col for col in df_tech.columns if col not in cols_to_delete]
+
+        i = 0
+        j = i + windows_size
+        rows = []
+
+        while j < df_tech.shape[0]:
+            profit = pre_process.calculate_proftability(df_raw, df_tech[date_col].iloc[j], profit_period, PROFTABILITY_TYPE.LINEAR)
+            rows.append([df_tech[ticker_col].iloc[i], 
+                         df_tech[date_col].iloc[i], 
+                         df_tech[date_col].iloc[j],
+                         df_tech[cols].iloc[i:j],
+                         profit,
+                         int(profit >= min_profit)if profit else None])
+
+            i += stride
+            j = i + windows_size
+
+        df_ret = pd.DataFrame(rows, columns=[ticker_col, f"{date_col}_start", f"{date_col}_ends", "series", "profit", "label"])
+        df_ret.dropna(inplace=True)
+        df_ret["label"] = df_ret["label"].astype(int)
+
+        return df_ret
+
     def calculate_proftability(self, df: pd.DataFrame, 
                                dt_search: pd.Timestamp, 
                                profit_period: int, 
@@ -133,12 +173,11 @@ class PreProcess():
             return None
 
     
-    def create_train_test_dataset(self, strategy_file: str, test_size: float, random_seed: int, scaler: TransformerMixin):
+    def create_train_test_dataset(self, strategy_file: str, test_size: float, random_seed: int):
         data_file_path = os.environ.get("DATASET_PATH")
-        model_base_path = os.environ.get("MODELS_PATH")
         train_ds_base_path = os.environ.get("TRAIN_DATASET")
         price_cols_to_delete = ["open", "high", "low"]
-        exp_to_parquet = ExportToParquet()
+        exporter = ExportToPickle()
 
         with open(strategy_file, "r") as f:
             df_train = None
@@ -148,13 +187,12 @@ class PreProcess():
                 files_path = os.path.join(data_file_path, strategy)
                 path_content = os.listdir(files_path)
                 # Filtra os arquivos parquet do diretório
-                path_content = [file for file in path_content if file.endswith(".parquet")]
+                path_content = [file for file in path_content if file.endswith(".pickle")]
 
                 for file in path_content:
                     print(f"Processando arquivo {file} na estrategia {strategy}")
-                    asset = file.split('.')[0]
-                    cols_to_delete = ["ticker", "start_dt_price", "end_dt_price", "proftability"]
-                    df = pd.read_parquet(os.path.join(files_path, file))
+                    cols_to_delete = ["ticker", "dt_price_start", "dt_price_ends", "profit"]
+                    df = pd.read_pickle(os.path.join(files_path, file))
                     # Seleciona as colunas que nao serao usadas no modelo
                     for price_col in price_cols_to_delete:
                         for df_col in df.columns:
@@ -176,20 +214,15 @@ class PreProcess():
                                                                         stratify=Y.values, 
                                                                         random_state=random_seed)
 
-                    scalar_instance = scaler.fit(X_train)
-
-                    # salva o modelo que faz scaling para ser usado posteriormente
-                    exp_to_pickle = ExportToPickle()
-                    exp_to_pickle.export(scalar_instance, os.path.join(model_base_path, strategy), asset)
-
                     for aux_vals, aux_labels, suffix in [(X_train, Y_train, "train"), (X_test, Y_test, "test")]:
-                        X_standarized = scalar_instance.transform(aux_vals)
-                        df_aux = pd.DataFrame(data=X_standarized, columns=remaining_cols_df)
+                        df_aux = pd.DataFrame(data=aux_vals, columns=remaining_cols_df)
                         df_aux["label"] = aux_labels
                         if suffix == "train":
                             df_train = pd.concat([df_train, df_aux], ignore_index=True)
                         else:
                             df_test = pd.concat([df_test, df_aux], ignore_index=True)
 
-                exp_to_parquet.export(df_train, os.path.join(train_ds_base_path, strategy), "train_data")
-                exp_to_parquet.export(df_test, os.path.join(train_ds_base_path, strategy), "test_data")
+
+                df_train.head()
+                exporter.export(df_train, os.path.join(train_ds_base_path, strategy), "train_data")
+                exporter.export(df_test, os.path.join(train_ds_base_path, strategy), "test_data")

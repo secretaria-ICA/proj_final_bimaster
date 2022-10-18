@@ -148,14 +148,15 @@ class PreProcess():
             rows.append([df_tech[ticker_col].iloc[i], 
                          df_tech[date_col].iloc[i], 
                          df_tech[date_col].iloc[j],
-                         df_tech[cols].iloc[i:j],
+                         df_tech[cols].iloc[i:j].shape,
+                         df_tech[cols].iloc[i:j].values.flatten(),
                          profit,
                          int(profit >= min_profit)if profit else None])
 
             i += stride
             j = i + windows_size
 
-        df_ret = pd.DataFrame(rows, columns=[ticker_col, f"{date_col}_start", f"{date_col}_ends", "series", "profit", "label"])
+        df_ret = pd.DataFrame(rows, columns=[ticker_col, f"{date_col}_start", f"{date_col}_ends", "shape", "series", "profit", "label"])
         df_ret.dropna(inplace=True)
         df_ret["label"] = df_ret["label"].astype(int)
 
@@ -177,7 +178,7 @@ class PreProcess():
         data_file_path = os.environ.get("DATASET_PATH")
         train_ds_base_path = os.environ.get("TRAIN_DATASET")
         price_cols_to_delete = ["open", "high", "low"]
-        exporter = ExportToPickle()
+        exporter = ExportToParquet()
 
         with open(strategy_file, "r") as f:
             df_train = None
@@ -187,12 +188,13 @@ class PreProcess():
                 files_path = os.path.join(data_file_path, strategy)
                 path_content = os.listdir(files_path)
                 # Filtra os arquivos parquet do diretório
-                path_content = [file for file in path_content if file.endswith(".pickle")]
+                path_content = [file for file in path_content if file.endswith(".parquet")]
+                new_dataframe_instance = True
 
                 for file in path_content:
                     print(f"Processando arquivo {file} na estrategia {strategy}")
                     cols_to_delete = ["ticker", "dt_price_start", "dt_price_ends", "profit"]
-                    df = pd.read_pickle(os.path.join(files_path, file))
+                    df = pd.read_parquet(os.path.join(files_path, file))
                     # Seleciona as colunas que nao serao usadas no modelo
                     for price_col in price_cols_to_delete:
                         for df_col in df.columns:
@@ -203,9 +205,10 @@ class PreProcess():
                     Y = df.pop('label')
                     remaining_cols_df = df.columns
 
-                    if df_test is None:
+                    if new_dataframe_instance:
                         df_test = pd.DataFrame(data=None, columns=remaining_cols_df)
                         df_train = pd.DataFrame(data=None, columns=remaining_cols_df)
+                        new_dataframe_instance = False
 
                     # Gera as bases de treino e teste
                     X_train, X_test, Y_train, Y_test = train_test_split(df.values, 
@@ -222,7 +225,16 @@ class PreProcess():
                         else:
                             df_test = pd.concat([df_test, df_aux], ignore_index=True)
 
-
-                df_train.head()
                 exporter.export(df_train, os.path.join(train_ds_base_path, strategy), "train_data")
                 exporter.export(df_test, os.path.join(train_ds_base_path, strategy), "test_data")
+
+
+    def read_dataset_from_parquet(self, path: str)->np.array:
+        assert os.path.exists(path), f"The file {path} does not exists!"
+        df = pd.read_parquet(path)
+        shape = df['shape'][0]
+
+        df.series = df.series.transform(lambda val: val.reshape(shape))
+        
+        return df.drop(columns=['shape'])
+

@@ -59,22 +59,22 @@
         "SMA": {
             "name": "Simple Moving Average",
             "input_params": ["close", "timeperiod"],
-            "return_values": ["sma"]
+            "return_values": ["sma_{timeperiod}"]
         },
         "T3": {
             "name": "Triple Exponential Moving Average (T3)",
             "input_params": ["close", "timeperiod", "vfactor"],
-            "return_values": ["T3"]
+            "return_values": ["T3_{timeperiod}"]
         },
         "TRIMA": {
             "name": "Triangular Moving Average",
             "input_params": ["close", "timeperiod"],
-            "return_values": ["trima"]
+            "return_values": ["trima_{timeperiod}"]
         },
         "WMA": {
             "name": "Weighted Moving Average",
             "input_params": ["close", "timeperiod"],
-            "return_values": ["wma"]
+            "return_values": ["wma_{timeperiod}"]
         }
     },
     "momentum_indicators":{

@@ -33,7 +33,7 @@
         "MAMA": {
             "name": "MESA Adaptive Moving Average",
             "input_params": ["close", "fastlimit", "slowlimit"],
-            "return_values": ["mama"]
+            "return_values": ["mama", "fama"]
         },
         "MAVP": {
             "name": "Moving average with variable period",
@@ -53,7 +53,7 @@
         "SAREXT":{
             "name": "Parabolic SAR - Extended",
             "input_params": ["high", "low", "startvalue", "offsetonreverse", "accelerationinitlong", "accelerationlong", 
-                            "accelerationmaxlong", "accelerationinitshort", "accelerationshort", "accelerationmaxshort"],
+                             "accelerationmaxlong", "accelerationinitshort", "accelerationshort", "accelerationmaxshort"],
             "return_values": ["sarext"]
         },
         "SMA": {

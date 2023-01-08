@@ -4,18 +4,52 @@ import re
 import pandas as pd
 import json
 import enum
+import math
+from sklearn.linear_model import LinearRegression
 import numpy as np
-import pickle
 from typing import List
 from talib import abstract
-from sklearn.base import TransformerMixin
 from sklearn.model_selection import train_test_split
-from db_access import ExportToParquet, ExportToPickle
+from db_access import ExportToParquet
 
 
 class PROFTABILITY_TYPE(enum.IntEnum):
     LINEAR = 1
     LOG = 2
+
+
+class PivotLevels:
+    def __init__(self, high: pd.Series, low: pd.Series, close: pd.Series) -> None:
+        self._low = low
+        self._high = high
+        self._close = close
+        self._pp = (high + low + close)/3
+
+
+    @property
+    def R1(self)->pd.Series:
+        return 2 * self._pp - self._low
+
+    @property
+    def S1(self)->pd.Series:
+        return 2 * self._pp - self._high
+
+    @property
+    def R2(self)->pd.Series:
+        return self._pp + (self._high - self._low)
+
+    @property
+    def S2(self)->pd.Series:
+        return self._pp - (self._high - self._low)
+
+    @property
+    def R3(self)->pd.Series:
+        return self._pp + 2 * (self._high - self._low)
+
+    @property
+    def S3(self)->pd.Series:
+        return self._pp - 2 * (self._high - self._low)
+
 
 class PreProcess():
     
@@ -78,6 +112,30 @@ class PreProcess():
                     else:
                         df_ret = self.apply_function(df_ret, dict_aux[function]['function'])
 
+                if "candles" in startegies[strategy]:
+                    for candle_func in startegies[strategy]["candles"]:
+                         # Create areference to the function used to calculate the technical indicator
+                        ta_lib_function = abstract.Function(candle_func)
+                        df_ret[candle_func] = ta_lib_function(df_ret["open"], df_ret["high"], df_ret["low"], df_ret["close"])/100
+
+                if "custom_columns" in startegies[strategy]:
+                    reg_exp_cols = re.compile(r"\[(.*?)\]")
+                    reg_exp_ops = re.compile(r"\](.*?)\[")
+                    for key in startegies[strategy]['custom_columns']:
+                        cust_col = startegies[strategy]['custom_columns'][key]
+                        ops = reg_exp_ops.findall(cust_col)
+                        for op in ops:
+                            op = op.strip()
+                            assert op in ['-', '+', '*', '/'], f"Invalid operation[{op}]! The possible operations are +, -, * and /"
+
+                        columns = reg_exp_cols.findall(cust_col)
+
+                        for col in columns:
+                            cust_col = cust_col.replace(f"[{col}]", f"df_ret['{col}']")     
+                        
+                        df_ret[key] = eval(cust_col)                    
+
+
                 yield strategy, startegies[strategy], df_ret
 
 
@@ -124,14 +182,14 @@ class PreProcess():
     def format_dataset(self,
                        df_raw: pd.DataFrame,
                        df_tech: pd.DataFrame,
-                       windows_size: int,
+                       window_size: int,
                        stride: int,
                        profit_period: int,
                        min_profit: float,
                        cols_to_delete: List,
                        ticker_col: str = "ticker",
                        date_col: str = "dt_price") -> pd.DataFrame:
-        pre_process = PreProcess()
+
         if cols_to_delete is not None:
             cols_to_delete.extend([ticker_col, date_col])
         else:
@@ -140,11 +198,11 @@ class PreProcess():
         cols = [col for col in df_tech.columns if col not in cols_to_delete]
 
         i = 0
-        j = i + windows_size
+        j = i + window_size
         rows = []
 
         while j < df_tech.shape[0]:
-            profit = pre_process.calculate_proftability(df_raw, df_tech[date_col].iloc[j], profit_period, PROFTABILITY_TYPE.LINEAR)
+            profit = self.calculate_proftability(df_raw, df_tech[date_col].iloc[j], profit_period, PROFTABILITY_TYPE.LINEAR)
             rows.append([df_tech[ticker_col].iloc[i], 
                          df_tech[date_col].iloc[i], 
                          df_tech[date_col].iloc[j],
@@ -154,7 +212,7 @@ class PreProcess():
                          int(profit >= min_profit)if profit else None])
 
             i += stride
-            j = i + windows_size
+            j = i + window_size
 
         df_ret = pd.DataFrame(rows, columns=[ticker_col, f"{date_col}_start", f"{date_col}_ends", "shape", "series", "profit", "label"])
         df_ret.dropna(inplace=True)
@@ -238,3 +296,21 @@ class PreProcess():
         
         return df.drop(columns=['shape'])
 
+
+    def linear_regression_slope(self, column: pd.Series, window_size: int, stride: int)->np.array:
+        assert window_size > 0, "The parameter window size must be greater than 0"
+        length = column.shape[0]
+        array_size = math.ceil(column.shape[0]/stride)
+        slopes = np.full(array_size, np.NaN)
+        slope_index = slopes.shape[0] - 1
+        for index in range(length, 0, -stride):
+            if index >= window_size:
+                X = np.array(range(window_size)).reshape(-1,1)
+                Y = column[index-window_size:index].values
+                model = LinearRegression().fit(X, Y)
+                slopes[slope_index] = model.coef_
+                slope_index -= 1
+            else:
+                break
+
+        return slopes

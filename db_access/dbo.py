@@ -45,3 +45,11 @@ class StockHistory(AbsDbReader):
         
         return pd.read_sql(sql_cmd, session.bind)
 
+    def select_markets(self):
+        session = get_session(self.str_conn)
+        sql_cmd = text("""
+                        select distinct COALESCE(market, 'N/D') as market
+                        from tb_issuer
+                       """)
+
+        return pd.read_sql(sql_cmd, session.bind)

@@ -187,6 +187,7 @@ class PreProcess():
                        profit_period: int,
                        min_profit: float,
                        cols_to_delete: List,
+                       signal_cols: List,
                        ticker_col: str = "ticker",
                        date_col: str = "dt_price") -> pd.DataFrame:
 
@@ -195,7 +196,7 @@ class PreProcess():
         else:
             cols_to_delete = [ticker_col, date_col]
 
-        cols = [col for col in df_tech.columns if col not in cols_to_delete]
+        cols = [col for col in df_tech.columns if col not in cols_to_delete and col not in signal_cols]
 
         i = 0
         j = i + window_size
@@ -208,13 +209,15 @@ class PreProcess():
                          df_tech[date_col].iloc[j],
                          df_tech[cols].iloc[i:j].shape,
                          df_tech[cols].iloc[i:j].values.flatten(),
+                         *df_tech[signal_cols].iloc[j].values,
                          profit,
                          int(profit >= min_profit)if profit else None])
 
             i += stride
             j = i + window_size
 
-        df_ret = pd.DataFrame(rows, columns=[ticker_col, f"{date_col}_start", f"{date_col}_ends", "shape", "series", "profit", "label"])
+        df_col_names = [ticker_col, f"{date_col}_start", f"{date_col}_ends", "shape", "series", *signal_cols, "profit", "label"]
+        df_ret = pd.DataFrame(rows, columns=df_col_names)
         df_ret.dropna(inplace=True)
         df_ret["label"] = df_ret["label"].astype(int)
 

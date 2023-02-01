@@ -97,22 +97,40 @@ Para este experimento os seguintes parâmetros foram definidos no arquivos de co
 
 Isso significa que que os modelos serão treinados com um histórico de preço e indicadores técnicos de 45 dias e a rentabilidade usada para gerar o label será aferida 10 dias após o último dia da série temporal. Os ativos que apresentarem rentabilidade igual ou superior a 2% em 10 dias, será classificada como 1 e os demas registros como 0. Além disso, haverá um intervalo de 5 dias entre cada linha do conjusto de dados usado no treinamento, ou seja se o primeiro registro usado no treinamento contém dados até o dia 10 de janeiro, o segundo registro conterá dados a partir do dia 15 de janeiro. 
 
+Pelo gráfico abaixo é possível notar que q base de treinamento não é perfeitamente balanceada, mas não será feito nenhum tratamento especial para tratar o desbalanceamento, pois a proporção de calsses positivas (1) e negativas (0) não é tão grade.
+<p align="center">
+    <img src="images/dist_label.png">
+</p>
+
 O último passo da etapa de extração e preparação dos dados e criação da base de treino e teste. Nesta etapa todos os arquivos são concatenados, seus registros misturados e dois arquivos são gerados: um contendo a base de treinamnto (aproximadamente 80% dos registros) e outro com os dados de teste. Uma detalhe importante é que a base de treinamento/teste contempla o histório de preços até dezembro de 2022, os dados de 2023 serão usados para validar os resultados obtidos durante o treinamento/teste do modelo.
 
 #### 2.1 Treinamento
 
 Dois modelos foram treinados:
 
-1. Uma Rede LSTM, que recebe apenas os dados históricos de preço. Esta rede é composta por X camadas LSTM sguidas de camadas full connected e gera como saída apenas um neurônio que contêm a probabiliade da ação apresentar valorização superior a 2% em 10 dias. A imagem abaixo apresenta a arquitetura utilizada nesta rede neural<br/>
+1. Uma Rede LSTM, que recebe apenas os dados históricos de preço. Esta rede é composta por X camadas LSTM sguidas de camadas full connected e gera como saída apenas um neurônio que contêm a probabiliade da ação apresentar valorização superior a 2% em 10 dias. A imagem abaixo apresenta a arquitetura utilizada nesta rede neural
 <br/>
 <p align="center">
-    <img src="lstm_basic.png">
+    <img src="images/lstm_basic.png">
 </p>
 
 2. Uma rede com arquitetura composta por duas entradas:
     a. A primeira, que trata os dados da série histórica, é composta por duas camadas LSTM.
     b. A Segunda, que trata os sinais de negociação, é composta por camadas Full Connected.
    As duas redes são conectadas, e seguem por uma rede full connected que tem como saída um neurônio com a probabiliade da ação apresentar valorização superior a 2% em 10 dias.
+<br/>
+<p align="center">
+    <img src="images/full_model.png">
+</p>
+Para efeito de comparação entre os dois modelos, os parâmetros de treinamento foram os mesmos:
+
+ * Loss Function: binary crossentropy
+ * Otimizaror: Adam com learnig rate de 0.002
+ * Métrica de avaliação do modelo: AUC
+ * Épocas máximas: 200
+ * Batch Size: 64
+
+Alem disso, com o objetivo de reduzir a chance de overfit o modelo, foi adicionado o "callback" EarlyStopping que irá interromper o treinamento caso o AUC não apresente melhora por 20 épocas seguidas.
 
 ### 3. Resultados
 

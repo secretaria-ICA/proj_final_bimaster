@@ -188,6 +188,7 @@ class PreProcess():
                        min_profit: float,
                        cols_to_delete: List,
                        signal_cols: List,
+                       splited_cols: List = None,
                        ticker_col: str = "ticker",
                        date_col: str = "dt_price") -> pd.DataFrame:
 
@@ -196,7 +197,10 @@ class PreProcess():
         else:
             cols_to_delete = [ticker_col, date_col]
 
-        cols = [col for col in df_tech.columns if col not in cols_to_delete and col not in signal_cols]
+        if splited_cols is None:
+            splited_cols = []
+
+        cols = [col for col in df_tech.columns if col not in cols_to_delete and col not in signal_cols and col not in splited_cols]
 
         i = 0
         j = i + window_size
@@ -204,19 +208,35 @@ class PreProcess():
 
         while j < df_tech.shape[0]:
             profit = self.calculate_proftability(df_raw, df_tech[date_col].iloc[j], profit_period, PROFTABILITY_TYPE.LINEAR)
-            rows.append([df_tech[ticker_col].iloc[i], 
-                         df_tech[date_col].iloc[i], 
-                         df_tech[date_col].iloc[j],
-                         df_tech[cols].iloc[i:j].shape,
-                         df_tech[cols].iloc[i:j].values.flatten(),
-                         *df_tech[signal_cols].iloc[j].values,
-                         profit,
-                         int(profit >= min_profit)if profit else None])
+            if splited_cols:
+                rows.append([df_tech[ticker_col].iloc[i], 
+                            df_tech[date_col].iloc[i], 
+                            df_tech[date_col].iloc[j],
+                            df_tech[cols].iloc[i:j].shape,
+                            df_tech[cols].iloc[i:j].values.flatten(),
+                            df_tech[splited_cols].iloc[i:j].shape,
+                            df_tech[splited_cols].iloc[i:j].values.flatten(),
+                            *df_tech[signal_cols].iloc[j].values,
+                            profit,
+                            int(profit >= min_profit)if profit else None])
+            else:
+                rows.append([df_tech[ticker_col].iloc[i], 
+                            df_tech[date_col].iloc[i], 
+                            df_tech[date_col].iloc[j],
+                            df_tech[cols].iloc[i:j].shape,
+                            df_tech[cols].iloc[i:j].values.flatten(),
+                            *df_tech[signal_cols].iloc[j].values,
+                            profit,
+                            int(profit >= min_profit)if profit else None])
 
             i += stride
             j = i + window_size
 
-        df_col_names = [ticker_col, f"{date_col}_start", f"{date_col}_ends", "shape", "series", *signal_cols, "profit", "label"]
+        if splited_cols:
+            df_col_names = [ticker_col, f"{date_col}_start", f"{date_col}_ends", "shape", "series", "price_shape", "price_cols", *signal_cols, "profit", "label"]
+        else:
+            df_col_names = [ticker_col, f"{date_col}_start", f"{date_col}_ends", "shape", "series", *signal_cols, "profit", "label"]
+
         df_ret = pd.DataFrame(rows, columns=df_col_names)
         df_ret.dropna(inplace=True)
         df_ret["label"] = df_ret["label"].astype(int)
@@ -235,10 +255,9 @@ class PreProcess():
             return None
 
     
-    def create_train_test_dataset(self, strategy_file: str, test_size: float, random_seed: int):
+    def create_train_test_dataset(self, strategy_file: str, test_size: float, random_seed: int, price_cols_to_delete: list):
         data_file_path = os.environ.get("DATASET_PATH")
         train_ds_base_path = os.environ.get("TRAIN_DATASET")
-        price_cols_to_delete = ["open", "high", "low"]
         exporter = ExportToParquet()
 
         with open(strategy_file, "r") as f:
@@ -293,11 +312,15 @@ class PreProcess():
     def read_dataset_from_parquet(self, path: str)->np.array:
         assert os.path.exists(path), f"The file {path} does not exists!"
         df = pd.read_parquet(path)
-        shape = df['shape'][0]
-
-        df.series = df.series.transform(lambda val: val.reshape(shape))
+        reshape_cols = [('series', 'shape'), ('price_cols', 'price_shape')]
+        cols_to_delete = []
+        for col, shape in reshape_cols:
+            if col in df.columns:
+                val_shape = df[shape][0]
+                df[col] = df[col].transform(lambda val: val.reshape(val_shape))
+                cols_to_delete.append(shape)
         
-        return df.drop(columns=['shape'])
+        return df.drop(columns=cols_to_delete)
 
 
     def linear_regression_slope(self, column: pd.Series, window_size: int, stride: int)->np.array:

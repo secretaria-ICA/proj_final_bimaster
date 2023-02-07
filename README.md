@@ -52,15 +52,8 @@ Para comprovar esta teoria, este trabalho vai comprar o resultado obtidos por do
     * Um conjunto de sinais de negociação (features não temporais)
 O resultado desta duas redes seraão concatenadas e a saída deste modelo será a probabilidade de ativo apresentar rentabilidade suerior a X% em Y dias.
 
-A comparação dos modelos será feira através das seguintes métricas:
-* Matriz de confusão
-* Precision
-* Recall
-* F1 Score
-* Acurácia
-
 ### 2. Modelagem
-A implementação do modelo foi dividida em 4 etapas:
+A implementação do modelo foi dividida em 3 etapas:
 1. Extração e preparação dos dados,
 2. Treinamento,
 3. Cálculos das métricas para avaliação do modelo.
@@ -87,6 +80,16 @@ Para facilitar o processamento das informações e permitir que o cálculo dos i
 * Colunas com os sinais de negociação<br/>
 
 As colunas Data de início e término da série temporal, foram incluídias no arquivo apenas como referência e para facilitar a validação dos dados, elas não são usadas no modelo. O Formato da série temporal (shape), foi criado devido a uma restrição do arquivo parquet, que não permite a gavação de matrizes multidimensionais, apenas vetores podem ser gravados neste formato. Por este motivo, antes de persistir os dados do ativo no arquivo a API verifica o formato dos dados da série histórica (shape da matriz), transforma a matriz em um vetor (flatten) e grava o arquivo. O formato da série temporal será usado para reconstruir a matriz antes de passá-la para a rede neural LSTM.
+
+Para a seleção dos sinais de negociação, foi feito o treinamento de um modelo XGBoost e gerada uma tabale ordenada de acordo com a importância das features, as colunas melhor ranqueadas foram utilizadas no processo de treinamento. Alguns dos sninais de negociação utilizados no processe de treinamento são:
+* Volatilidade do preço de fechamento - é uma medida de risco e é calculada através do desvio padrão do retorno diário do ativo.
+* Coeficiente angular da volatidade - a idéia desta feature é passar para o modelo uma ideia da tendência da volatilidade (alta, queda ou estabilidade) no período em que o experimento está sendo realizado (parâmetro historic_period). Ela é obtida através da regressão linear da volatilidade.
+* Coeficiente angular da variação do volume negociado - em análise técnica o volme de negociação do ativo é usado para confimrar tendências de preço, espera-se que uma tendência de alta no preço de um ativo seja associada à um aumento em seu volume de negociação.
+* Distância entre o preço de fechamento e os "Pivot Levels" - "Pivot Levels" são zonas de preço consideradas como suporte/resistência, ou seja são regiões onde o preço de um ativo pode encontrar resistência em seguir em sua tenência de alta ou de queda.
+* Distância entre a linha do RSI e o threshold 70 - o RSI (Relative Stringht Index) é um indicador técnico de momentum que tem como objetivo medir a capacidade de um ativo de seguir em sua tendência. Valores acima de 70 classificam o ativo como "sobre comprado", ou seja, o valor do ativo chegou a um patamar em que provavelmente haverá uma correção no preço.
+* Candlesticks - são padrões de comportamento do preço do ativo que geram sinais de compra e venda. São muito utilizados em análise técnica, normalmente associados à outros indicadores.
+
+Esta metodologia, de se treinar um modelo baseado em árvores de decisão e listar as features por ordem de importância, pode ser usada sempre que se deseje testar um novo sinal de negociação, desta forma é possível ter um bom indicativo que a nova feature realmente irá agregar valor ao modelo.
 
 Para este experimento os seguintes parâmetros foram definidos no arquivos de configuração:
 
@@ -122,6 +125,7 @@ Dois modelos foram treinados:
 <p align="center">
     <img src="images/full_model.png">
 </p>
+
 Para efeito de comparação entre os dois modelos, os parâmetros de treinamento foram os mesmos:
 
  * Loss Function: binary crossentropy
@@ -132,17 +136,40 @@ Para efeito de comparação entre os dois modelos, os parâmetros de treinamento
 
 Alem disso, com o objetivo de reduzir a chance de overfit o modelo, foi adicionado o "callback" EarlyStopping que irá interromper o treinamento caso o AUC não apresente melhora por 20 épocas seguidas.
 
+#### 2.3 Cálculos das métricas para avaliação do modelo.
+
+A comparação dos modelos será feira através das seguintes métricas:
+* Matriz de confusão
+* Precision
+* Recall
+* F1 Score
+* Acurácia
+
 ### 3. Resultados
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin pulvinar nisl vestibulum tortor fringilla, eget imperdiet neque condimentum. Proin vitae augue in nulla vehicula porttitor sit amet quis sapien. Nam rutrum mollis ligula, et semper justo maximus accumsan. Integer scelerisque egestas arcu, ac laoreet odio aliquet at. Sed sed bibendum dolor. Vestibulum commodo sodales erat, ut placerat nulla vulputate eu. In hac habitasse platea dictumst. Cras interdum bibendum sapien a vehicula.
+No quadro abaixo é possível comprar os resultados durante o treinamento dos dois modelos:
 
-Proin feugiat nulla sem. Phasellus consequat tellus a ex aliquet, quis convallis turpis blandit. Quisque auctor condimentum justo vitae pulvinar. Donec in dictum purus. Vivamus vitae aliquam ligula, at suscipit ipsum. Quisque in dolor auctor tortor facilisis maximus. Donec dapibus leo sed tincidunt aliquam.
+Indicador          | LSTM Simples       | Rede Neural com Arquitetura customizada
+------------------ |------------------- | ---------------------------------------
+Acurácia           |  62%               | 62%
+Matriz de Confusão |  [5755  171]<br> [3562  278] | [5384  542]<br> [3213  627]
+Precision          |  62%               | 54%
+Recall             |  7%                | 16%
+F1 Score           |  13%               | 25%
+
+Apesar de ambos os modelos apresentarem a mesma acurácia de 62%, é possível notar que o modelo com a arquitetura customizada foi capaz de identificar mais do que duas vezes mais ativos que se valorizaram mais do que 2% em 10 dias, que é o objetivo do modelo. A melhor precision do modelo modelo LSTM se deve ao fato dele classificar a grande maioria dos registros como negativos (classe 0)identificando apenas 278 das mais de 3.500 classes positivas. A comparação do F1 Score comprova a melhor performance da Rede Neural com dois inputs, um para a série temporal e a segunda para os sinais de negociação.
 
 ### 4. Conclusões
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin pulvinar nisl vestibulum tortor fringilla, eget imperdiet neque condimentum. Proin vitae augue in nulla vehicula porttitor sit amet quis sapien. Nam rutrum mollis ligula, et semper justo maximus accumsan. Integer scelerisque egestas arcu, ac laoreet odio aliquet at. Sed sed bibendum dolor. Vestibulum commodo sodales erat, ut placerat nulla vulputate eu. In hac habitasse platea dictumst. Cras interdum bibendum sapien a vehicula.
+Claramente o modelo com entradas separadas para as séries temporais e os sinais de negociação apresentou performance muito superior ao tradicional LSTM (F1 Score de 25% contra 13% do LSTM), porém esta performance ainda não é suficiente para que ele seja usado em negocições reais no mercado de capitais. De qualquer forma, o resultado encontrado confirma que vale a pena realizar novos experimentos para tentar melhorar a performance deste modelo, combinando mais indicadores técnicos, criando novos sinais de negociação ou mesmo utilizando outros tipos de informação, como dados macroeconômicos (variação do PIB, taxa de juros, variação cambial, onfiança do consumidor, etc). Além disso, a arquitetura de redes neurais permite a utilização de dados não estruturados como imagem e texto em conjunto com os dados estruturados, logo outro experimento possível seria gerar gráficos com o histórico de preço dos ativos e usar estas imagens como outra entrada para o modelo.
 
-Proin feugiat nulla sem. Phasellus consequat tellus a ex aliquet, quis convallis turpis blandit. Quisque auctor condimentum justo vitae pulvinar. Donec in dictum purus. Vivamus vitae aliquam ligula, at suscipit ipsum. Quisque in dolor auctor tortor facilisis maximus. Donec dapibus leo sed tincidunt aliquam.
+Outro exerimento possível seria utilizar arquiteturas de redes neurais mais sofisticadas, como Transformers, para tratar as séries temporais. A combinação do conjujto de features corretas com modelos mais sofisticados tem o potencial de gerar resultados bem mais interessantes do que os que foram obtidos neste trabalho, o que viabilizaria sua utilização no mercado real.
+
+Uma vez que o modelo apresente indicadores melhores, é altamente recomendável testá-lo no mercado antes de realizar operações envolvendo dinheiro real. Estes testes podem ser facilmente realizados, montando uma carteira de ações baseada nos ativos indicados pelo modelo e comparando a performance desta carteira com índices amplos como o IBOVESPA.
+
+Outra consideração importante é que este tipo de modelo precisa ser retreinado com uma certa frequência, pois as condições do mercado financeiro mudam a todo momento e por este motivo um modelo que funciona muito bem em um momento pode passar a performar de forma inaceitável muito rapidamente.
+
+De uma forma geral, acredito que os resultados obtidos com este experimento comprovam que é possível utilizar redes neurais para classificar ações em lucrativas ou não que vale a pena realizar novos experimentos para melhorar os resultados obtidos. De acordo com pesquisas que fiz durante o desenvolvimento deste trabalho, pude observar que esta é uma área pouco explorada e parece haver muito espaço para utilização deste tipo de arquitetura nesta área, principalmente pela possibilidade de combinar dados estruturados com não estruturados.
 
 ### <a id="apendice">Apêndice I - Preparação dos datasets: O arquivo de configuração strategies.json</a>
 A preparação dos dados consiste em incluir indicadores técnicos e outras features ao histórico de preço de cada ativo, de forma a enriquecer a base de treinamento e permitir que o modelo possa realizar uma melhor classificação. Com o objetivo de facilitar a geração dos datasets de treinamento e validação, ao invés de implementar a criação das features manuelmente em Python, foi criado um arquivo de configuração chamado <i>strategies.json</i> que permite configurar quais indicadores técnicos serão utilizados em cada dataset. Desta forma, é possível configurar diferentes conjustos de features e realizar vários experimentos com diferentes arquiteturas de modelos sem que seja necessário implmentar diferentes versões do código.

@@ -1,5 +1,5 @@
 <!-- antes de enviar a versão final, solicitamos que todos os comentários, colocados para orientação ao aluno, sejam removidos do arquivo -->
-# Classificação de Ações com Redes Neurais
+# Classificacao_de_Acoes_com_Redes_Neurais
 
 #### Aluno: [Ricardo Monteiro](https://github.com/ragmonteiro)
 #### Orientador: [Felipe Borges](https://github.com/FelipeBorgesC)
